@@ -53,7 +53,7 @@ int evaluate_command(int n_commands, struct single_command (*commands)[512])
       return 0;
     } else if (strcmp(com->argv[0], "exit") == 0) {
       return 1;
-    } else if (arg[0][0] == '/') {
+    } else if (arg[0][0] == '/') {  //if a path income
 
 	int pid = fork();
 

@@ -22,7 +22,7 @@ void mysh_parse_command(const char* command,
 
     ++ti;
 
-    tok = strtok_r(NULL, "|", &saveptr);
+    tok = strtok_r(NULL, "|", &saveptr);  //if user wants to use pipe
   }
 
   *n_commands = ti;

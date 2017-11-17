@@ -2,7 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <pthread.h>
 #include <signal.h>
+#include <wait.h>
 
 #include "commands.h"
 #include "signal_handlers.h"
@@ -21,57 +23,55 @@ int main()
 
     struct single_command commands[512];  //commmands->argv
     int n_commands = 0;  //=argc
+    int ret;
 
     mysh_parse_command(buf, &n_commands, &commands);
 
-//if commands->argv[argc] == '&' -> that command is background
-    int bg = 0;
+//argv[0], [1] parsing OK
+
+    if(commands->argc == 1) {//if user do not want to bg prcs
+
+      ret = evaluate_command(n_commands, &commands);
+
+      free_commands(n_commands, &commands);
+     
+      n_commands = 0;
+    } else if (strcmp(commands->argv[1], "&") == 0) {  //if user want to bg processing
+
     int buflen = strlen(buf);
-    char* bg_buf;
+    char* bg_buf = malloc(sizeof(char)*(buflen-1));
+      strcpy(bg_buf, commands->argv[0]);
+      strcat(bg_buf, "\0");
+//printf("bg cmd = %s\n", bg_buf);OK
+      char* argu[] = {bg_buf, 0};
 
-    if(!strcmp(commands->argv[n_commands-1],"&")){
-printf("command want to become bg : %s\n", commands->argv[n_commands-1]);
-        bg = 1;
-        buf[buflen-1] = NULL;
-        memset(bg_buf, 0, 1024);
-	strcpy(bg_buf, buf);
-      }
-printf("bg cmd is %s\n", bg_buf);
+ //in bg processing
+	int PID;
+      	PID = fork();
+	if(PID == 0) {  //if child process
 
-    if(bg == 1) {
+	  int bg_pid = fork();
+          if(bg_pid == 0) { //real bg process
+	    printf("%d\n", getpid());
+	    execv(argu[0], argu);
+          } else {  //real bg process ends, print pid and ohters
+  	    wait(NULL);
+	    printf("%d done %s\n", bg_pid, argu[0]);
 
-      int PID;
-      PID = fork();
-
-      if(PID == 0) {  //if child process
-
-	char* argu[] = {bg_buf,0};
-
-	execv(argu[0], argu);
-
-	fprintf(stdout, "%d done %s\n",getpid(), argu[0]);
-	n_commands = 0;
+	    free_commands(n_commands, &commands);
+	    n_commands = 0;
+          }
 	exit(0);
 
-      } else if (PID < 0) {
-	  printf("bg : fork failed.\n");
-
       } else {  //parent don't wait
-	  fprintf(stdout, "%d\n", PID);
-	  free_commands(n_commands, &commands);
-	  n_commands = 0;
+
       }
+
+    free(bg_buf);
     }
 
-    int ret = evaluate_command(n_commands, &commands);
-
-//    free_commands(n_commands, &commands);
-//    n_commands = 0;
-
-    free_commands(n_commands, &commands);
-    n_commands = 0;
-
     if (ret == 1) {
+
       break;
     }
   }
